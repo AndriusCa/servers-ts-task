@@ -46,16 +46,42 @@ server.httpServer = http.createServer(
     const isAPI = trimmedPath.startsWith("api/")
     const isPage = !isTextFile && !isBinaryFile && !isAPI
 
+    // type Mimes = { [key: string]: string };
+    type Mimes = Record<string, string>
+
+    const MIMES: Mimes = {
+      html: "text/html",
+      css: "text/css",
+      js: "text/javascript",
+      json: "application/json",
+      txt: "text/plain",
+      svg: "image/svg+xml",
+      xml: "application/xml",
+      ico: "image/vnd.microsoft.icon",
+      jpeg: "image/jpeg",
+      jpg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      woff2: "font/woff2",
+      woff: "font/woff",
+      ttf: "font/ttf",
+      webmanifest: "application/manifest+json",
+    }
+
     let responseContent = "ERROR: neturiu tai ko tu nori..."
 
-    if (isTextFile) {
-      const content = "labas"
-      const fileCreateResponse = await file.create(
-        "../../data",
-        "hey.txt",
-        content
-      )
-      console.log(fileCreateResponse)
+     if (isTextFile) {
+        const [err, msg] = await file.readPublic(trimmedPath);
+        res.writeHead(err ? 404 : 200, {
+            'Content-Type': MIMES[fileExtension],
+            'cache-control': `max-age=60`,
+        });
+        if (err) {
+            responseContent = msg;
+        } else {
+            responseContent = msg;
+        }
+    
 
       let fileReadResponse = await file.read("../../public/css", "button.css")
       console.log(fileReadResponse)
