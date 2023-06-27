@@ -11,13 +11,13 @@ const server = {} as Server
 
 server.httpServer = http.createServer(
   async (req: IncomingMessage, res: ServerResponse) => {
-    const socket = req.socket as any
-    const encryption = socket.encryption as any
-    const ssl = encryption !== undefined ? "s" : ""
+    const socket = req.socket as any;
+    const encryption = socket.encryption as any;
+    const ssl = encryption !== undefined ? "s" : "";
 
-    const baseURL = `http${ssl}://${req.headers.host}`
-    const parsedURL = new URL(req.url ?? "", baseURL)
-    const httpMethod = req.method ? req.method.toLowerCase() : "get"
+    const baseURL = `http${ssl}://${req.headers.host}`;
+    const parsedURL = new URL(req.url ?? "", baseURL);
+    const httpMethod = req.method ? req.method.toLowerCase() : "get";
     const trimmedPath = parsedURL.pathname
       .replace(/^\/+|\/+$/g, "")
       .replace(/\/\/+/g, "/")
@@ -70,22 +70,8 @@ server.httpServer = http.createServer(
 
     let responseContent = "ERROR: neturiu tai ko tu nori..."
 
-     if (isTextFile) {
-        const [err, msg] = await file.readPublic(trimmedPath);
-        res.writeHead(err ? 404 : 200, {
-            'Content-Type': MIMES[fileExtension],
-            'cache-control': `max-age=60`,
-        });
-        if (err) {
-            responseContent = msg;
-        } else {
-            responseContent = msg;
-        }
-    
-
-      let fileReadResponse = await file.read("../../public/css", "button.css")
-      console.log(fileReadResponse)
-      //  console.log(JSON.parse(fileReadResponse[1]));
+    if (isTextFile) {
+      responseContent = "TEKSTINIS FAILAS"
     }
 
     if (isBinaryFile) {
@@ -93,30 +79,115 @@ server.httpServer = http.createServer(
     }
 
     if (isAPI) {
-      responseContent = "API DUOMENYS"
+      const content = `{
+            "id": 1,
+            "name": "Jonas",
+            "email": "jonas@jonas.lt"
+        }`
+      const [err, msg] = await file.create(
+        "../data",
+        "jonas@jonas.lt.json",
+        content
+      )
+      if (err) {
+        responseContent = msg
+      } else {
+        responseContent = content
+      }
+    }
+
+    if (isAPI) {
+      const content = `{
+            "id": 2,
+            "name": "Maryte",
+            "email": "maryte@maryte.lt"
+        }`
+      const [err, msg] = await file.create(
+        "../data",
+        "maryte@maryte.lt.json",
+        content
+      )
+      if (err) {
+        responseContent = msg
+      } else {
+        responseContent = content
+      }
+    }
+
+    if (isAPI) {
+      const content = `{
+            "id": 3,
+            "name": "Petras",
+            "email": "petras@petras.lt"
+        }`
+      const [err, msg] = await file.create(
+        "../data",
+        "petras@petras.lt.json",
+        content
+      )
+      if (err) {
+        responseContent = msg
+      } else {
+        responseContent = content
+      }
+    }
+
+    if (isAPI) {
+      const content = `{
+            "id": 2,
+            "name": "Maryte",
+            "email": "maryte@maryte.lt"
+        }`
+      const [err, msg] = await file.delete("../data", "maryte@maryte.lt.json")
+      if (err) {
+        responseContent = msg
+      } else {
+        responseContent = content
+      }
+    }
+
+    if (isAPI) {
+      const content = `{
+            "id": 1,
+            "name": "Jonas",
+            "email": "jonas@jonas.lt",
+            "password": 1234
+        }`
+
+      const [err, msg] = await file.update(
+        "../data",
+        "jonas@jonas.lt.json",
+        content
+      )
+      if (err) {
+        responseContent = msg
+      } else {
+        responseContent = content
+      }
+    }
+
+    if (isAPI) {
+      const content = `{
+            "id": 3,
+            "name": "Petras",
+            "email": "petras@petras.lt",
+            "password": 0000
+        }`
+      const [err, msg] = await file.update(
+        "../data",
+        "petras@petras.lt.json",
+        content
+      )
+      if (err) {
+        responseContent = msg
+      } else {
+        responseContent = content
+      }
     }
 
     if (isPage) {
-      responseContent = `page`
+      responseContent = `PUSLAPIS`
     }
-
-    // puslapio html
-    // failai:
-    // - tekstiniai:
-    //      - css failu
-    //      - js failu
-    //      - svg failu
-    // - ne tekstiniai:
-    //      - img failu
-    //      - fonts failu
-    //      - video failu
-    //      - audio failu
-    //      - pdf failu
-    // duomenu JSON
-
-    // if (trimmedPath === "/") {
-    //   responseContent = `
-    // }
 
     return res.end(responseContent)
   }
