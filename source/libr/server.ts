@@ -1,202 +1,167 @@
 import http, { IncomingMessage, ServerResponse } from "node:http"
 import { file } from "./file.js"
+import { StringDecoder } from "node:string_decoder"
 
-type Server = {
-  init: () => void
-  // httpServer: typeof http.createServer;
-  httpServer: any
-}
+export const serverLogic = async (req: IncomingMessage, res: ServerResponse) => {
+  const baseUrl = `http://${req.headers.host}`
+  const parsedUrl = new URL(req.url ?? "", baseUrl)
+  const trimmedPath = parsedUrl.pathname
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\/\/+/g, "/")
 
-const server = {} as Server
+  const textFileExtensions = ["css", "js", "svg", "webmanifest"]
+  const binaryFileExtensions = [
+    "gif",
+    "png",
+    "jpg",
+    "jpeg",
+    "webp",
+    "ico",
+    "eot",
+    "ttf",
+    "woff",
+    "woff2",
+    "otf",
+  ]
 
-server.httpServer = http.createServer(
-  async (req: IncomingMessage, res: ServerResponse) => {
-    const socket = req.socket as any;
-    const encryption = socket.encryption as any;
-    const ssl = encryption !== undefined ? "s" : "";
+  const fileExtension = trimmedPath.slice(trimmedPath.lastIndexOf(".") + 1)
 
-    const baseURL = `http${ssl}://${req.headers.host}`;
-    const parsedURL = new URL(req.url ?? "", baseURL);
-    const httpMethod = req.method ? req.method.toLowerCase() : "get";
-    const trimmedPath = parsedURL.pathname
-      .replace(/^\/+|\/+$/g, "")
-      .replace(/\/\/+/g, "/")
+  const isTextFile = textFileExtensions.includes(fileExtension)
+  const isBinaryFile = binaryFileExtensions.includes(fileExtension)
+  const isAPI = trimmedPath.startsWith("api/")
+  const isPage = !isTextFile && !isBinaryFile && !isAPI
 
-    // const isTextFile = false // galune: .css, .js, .svg, ...
-    // const isBinaryFile = false // galune: .png, .jpg, .webp, .eot, .ttf, ...
-    // const isAPI = false // url prasideda: /api/.....
-    // const isPage = !isTextFile && !isBinaryFile && !isAPI
+  // const isTextFile = false // galune: .css, .js, .svg, ...
+  // const isBinaryFile = false // galune: .png, .jpg, .webp, .eot, .ttf, ...
+  // const isAPI = false // url prasideda: /api/.....
+  // const isPage = !isTextFile && !isBinaryFile && !isAPI
 
-    const textFileExtensions = ["css", "js", "svg", "webmanifest"]
-    const binaryFileExtensions = [
-      "png",
-      "jpg",
-      "jpeg",
-      "webp",
-      "ico",
-      "eot",
-      "ttf",
-      "woff",
-      "woff2",
-      "otf",
-    ]
-    const fileExtension = trimmedPath.slice(trimmedPath.lastIndexOf(".") + 1)
-    const isTextFile = textFileExtensions.includes(fileExtension)
-    const isBinaryFile = binaryFileExtensions.includes(fileExtension)
-    const isAPI = trimmedPath.startsWith("api/")
-    const isPage = !isTextFile && !isBinaryFile && !isAPI
+  // type Mimes = { [key: string]: string };
+  type Mimes = Record<string, string>
 
-    // type Mimes = { [key: string]: string };
-    type Mimes = Record<string, string>
+  const MIMES: Mimes = {
+    gif: "image/gif",
+    html: "text/html",
+    css: "text/css",
+    js: "text/javascript",
+    json: "application/json",
+    txt: "text/plain",
+    svg: "image/svg+xml",
+    xml: "application/xml",
+    ico: "image/vnd.microsoft.icon",
+    jpeg: "image/jpeg",
+    jpg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    woff2: "font/woff2",
+    woff: "font/woff",
+    ttf: "font/ttf",
+    webmanifest: "application/manifest+json",
+  }
 
-    const MIMES: Mimes = {
-      html: "text/html",
-      css: "text/css",
-      js: "text/javascript",
-      json: "application/json",
-      txt: "text/plain",
-      svg: "image/svg+xml",
-      xml: "application/xml",
-      ico: "image/vnd.microsoft.icon",
-      jpeg: "image/jpeg",
-      jpg: "image/jpeg",
-      png: "image/png",
-      webp: "image/webp",
-      woff2: "font/woff2",
-      woff: "font/woff",
-      ttf: "font/ttf",
-      webmanifest: "application/manifest+json",
-    }
+  let responseContent: string | Buffer = ""
+  let buffer = ""
+  const stringDecoder = new StringDecoder("utf-8")
 
-    let responseContent = "ERROR: neturiu tai ko tu nori..."
+  req.on("data", (data) => {
+    buffer += stringDecoder.write(data)
+  })
+
+  req.on("end", async () => {
+    buffer += stringDecoder.end()
 
     if (isTextFile) {
-      responseContent = "TEKSTINIS FAILAS"
+      const [err, msg] = await file.readPublic(trimmedPath)
+
+      if (err) {
+        res.statusCode = 404
+        responseContent = `Error: could not find file: ${trimmedPath}`
+      } else {
+        res.writeHead(200, {
+          "Content-Type": MIMES[fileExtension],
+        })
+        responseContent = msg
+      }
     }
 
     if (isBinaryFile) {
-      responseContent = "BINARY FAILAS"
-    }
+      const [err, msg] = await file.readPublicBinary(trimmedPath)
 
-    if (isAPI) {
-      const content = `{
-            "id": 1,
-            "name": "Jonas",
-            "email": "jonas@jonas.lt"
-        }`
-      const [err, msg] = await file.create(
-        "../data",
-        "jonas@jonas.lt.json",
-        content
-      )
       if (err) {
-        responseContent = msg
+        res.statusCode = 404
+        responseContent = `Error: could not find file: ${trimmedPath}`
       } else {
-        responseContent = content
+        res.writeHead(200, {
+          "Content-Type": MIMES[fileExtension],
+        })
+        responseContent = msg
       }
     }
 
     if (isAPI) {
-      const content = `{
-            "id": 2,
-            "name": "Maryte",
-            "email": "maryte@maryte.lt"
-        }`
-      const [err, msg] = await file.create(
-        "../data",
-        "maryte@maryte.lt.json",
-        content
-      )
-      if (err) {
-        responseContent = msg
-      } else {
-        responseContent = content
-      }
-    }
+      const jsonData = buffer ? JSON.parse(buffer) : {};
 
-    if (isAPI) {
-      const content = `{
-            "id": 3,
-            "name": "Petras",
-            "email": "petras@petras.lt"
-        }`
-      const [err, msg] = await file.create(
-        "../data",
-        "petras@petras.lt.json",
-        content
-      )
-      if (err) {
-        responseContent = msg
-      } else {
-        responseContent = content
-      }
-    }
-
-    if (isAPI) {
-      const content = `{
-            "id": 2,
-            "name": "Maryte",
-            "email": "maryte@maryte.lt"
-        }`
-      const [err, msg] = await file.delete("../data", "maryte@maryte.lt.json")
-      if (err) {
-        responseContent = msg
-      } else {
-        responseContent = content
-      }
-    }
-
-    if (isAPI) {
-      const content = `{
-            "id": 1,
-            "name": "Jonas",
-            "email": "jonas@jonas.lt",
-            "password": 1234
-        }`
-
-      const [err, msg] = await file.update(
-        "../data",
-        "jonas@jonas.lt.json",
-        content
-      )
-      if (err) {
-        responseContent = msg
-      } else {
-        responseContent = content
-      }
-    }
-
-    if (isAPI) {
-      const content = `{
-            "id": 3,
-            "name": "Petras",
-            "email": "petras@petras.lt",
-            "password": 0000
-        }`
-      const [err, msg] = await file.update(
-        "../data",
-        "petras@petras.lt.json",
-        content
-      )
-      if (err) {
-        responseContent = msg
-      } else {
-        responseContent = content
-      }
-    }
+    
+      if (req.method === "POST") {
+        const [err, msg] = await file.create(
+          "users",
+          jsonData.email + ".json", jsonData)
+        if (err) {
+          responseContent = msg.toString();
+      
+        } else {
+          responseContent = "User Created"
+        }
+      } else if (req.method === "GET") {
+        const [err, msg] = await file.read("users", jsonData.email + ".json")
+        if (err) {
+          responseContent = msg.toString()
+        } else {
+          responseContent = jsonData
+        }  
+      } else if (req.method === "PUT") {
+        const [err, msg] = await file.update("users", jsonData.email + ".json", jsonData
+        )
+        if (err) {
+          responseContent = msg.toString()
+        } else {
+          responseContent = "User Updated"
+        }
+      } else if (req.method === "DELETE") {
+        const [err, msg] = await file.delete("users", jsonData.email + ".json");
+        if (err) {
+          responseContent = msg.toString();
+        } else {
+          responseContent = "User Deleted";
+        };
+      };
+    };
 
     if (isPage) {
-      responseContent = `PUSLAPIS`
-    }
+      res.writeHead(200, {
+        "Content-Type": MIMES.html,
+      })
+      responseContent = "CONTENT"
+    };
 
-    return res.end(responseContent)
-  }
-)
-
-server.init = () => {
-  server.httpServer.listen(4423, () => {
-    console.log("Serveris sukasi ant http://localhost:4423")
-  })
+    res.end(responseContent);
+  });
 }
 
-export { server }
+export const httpServer = http.createServer(serverLogic);
+
+export const init = () => {
+  httpServer.listen(4423, () => {
+    console.log(' Server is running on http://localhost:4423')
+  })
+};
+
+
+
+export const server = {
+  init,
+  httpServer
+};
+
+
+export default server;

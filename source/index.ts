@@ -1,29 +1,19 @@
+// susiimportina
 import { server } from "./libr/server.js"
 
-console.clear()
-
-type App = {
-  init: () => void
-}
-
-const app = {} as App
-
-app.init = () => {
-  // susikurti reikiamus/trukstamus folderius ir failus
-  // atsinaujinti informacija
-  // duombaze:
-  // - prisijungti
-  // - pasiruosti struktura
-  // - surasyti pradinius duomenis
-  // paleisti serverio logika
+// turi savo programos pasileidima // kaip inicijuoti app`a
+// iskviecia funkcija
+export const init = () => {
   server.init()
-
-  // laike pasikartojantys procesai:
-  // - isivalyti nereikalingus failus/info
-  // - atnaujinti failus/info
-  // - backup darymas
 }
 
-app.init()
+// app - rinkinys funkciju
+// reikia priregistruoti nauja funkcija prie objekto
+export const app = {
+  init,
+}
 
 export default app
+
+// ir tiesiog pasileidzia
+app.init()
