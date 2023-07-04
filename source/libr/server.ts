@@ -1,6 +1,7 @@
 import http, { IncomingMessage, ServerResponse } from "node:http"
 import { file } from "./file.js"
 import { StringDecoder } from "node:string_decoder"
+import { json } from "stream/consumers"
 
 export const serverLogic = async (req: IncomingMessage, res: ServerResponse) => {
   const baseUrl = `http://${req.headers.host}`
@@ -101,33 +102,44 @@ export const serverLogic = async (req: IncomingMessage, res: ServerResponse) => 
     if (isAPI) {
       const jsonData = buffer ? JSON.parse(buffer) : {};
 
-    
-      if (req.method === "POST") {
-        const [err, msg] = await file.create(
-          "users",
-          jsonData.email + ".json", jsonData)
+    if (isAPI && req.method === "POST") {
+      
+      const [err, msg] = await file.create("users", jsonData.email + '.json', jsonData)
+      if (err) {
+        responseContent = msg.toString()
+      } else {
+        responseContent = "User Created"
+       }
+      }
+      // if (isAPI && req.method === "GET" && trimmedPath.startsWith("api/user/[ID]")) {
+      //   const userID = trimmedPath.split("/")[2]
+      //   const [err, msg] = await file.read("users", userID)
+      //   if (err) {
+      //     responseContent = msg.toString()
+      //   } else {
+      //     responseContent = msg;
+      //   }
+      // }
+
+      if (isAPI && req.method === "GET" && trimmedPath.startsWith("api/user-by-email/")) {
+        const email = trimmedPath.split("/")[2]
+        const [err, msg] = await file.readByEmail("users", email)
+        if (err) {
+          responseContent = msg.toString()
+        } else {
+          responseContent = msg.toString();
+        }
+      }
+
+       else if (req.method === "PUT") {
+        const [err, msg] = await file.update("users", jsonData.email + ".json", jsonData
+        );
         if (err) {
           responseContent = msg.toString();
-      
         } else {
-          responseContent = "User Created"
+          responseContent = "User updated";
         }
-      } else if (req.method === "GET") {
-        const [err, msg] = await file.read("users", jsonData.email + ".json")
-        if (err) {
-          responseContent = msg.toString()
-        } else {
-          responseContent = jsonData
-        }  
-      } else if (req.method === "PUT") {
-        const [err, msg] = await file.update("users", jsonData.email + ".json", jsonData
-        )
-        if (err) {
-          responseContent = msg.toString()
-        } else {
-          responseContent = "User Updated"
-        }
-      } else if (req.method === "DELETE") {
+      }  else if (req.method === "DELETE") {
         const [err, msg] = await file.delete("users", jsonData.email + ".json");
         if (err) {
           responseContent = msg.toString();
@@ -135,7 +147,9 @@ export const serverLogic = async (req: IncomingMessage, res: ServerResponse) => 
           responseContent = "User Deleted";
         };
       };
-    };
+
+
+    
 
     if (isPage) {
       res.writeHead(200, {

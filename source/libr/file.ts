@@ -3,27 +3,17 @@ import path from "path"
 import { fileURLToPath } from "url"
 
 type File = {
-  fullPath: (dir: string, fileName: string) => string
-  fullPublicPath: (trimmedFilePath: string) => string
-  create: (
-    dir: string,
-    fileName: string,
-    content: any
-  ) => Promise<[boolean, string | Error]>
-  read: (
-    dir: string,
-    fileName: string
-  ) => Promise<[false, string] | [true, Error]>
-  readPublic: (trimmedFilePath: string) => Promise<[boolean, string]>
-  readPublicBinary: (
-    trimmedFilePath: string
-  ) => Promise<[boolean, string | Buffer]>
-  update: (
-    dir: string,
-    fileName: string,
-    content: any
-  ) => Promise<[boolean, string | Error]>
-  delete: (dir: string, fileName: string) => Promise<[boolean, string | Error]>
+  fullPath: (dir: string, fileName: string) => string;
+  fullPublicPath: (trimmedFilePath: string) => string;
+  create: (dir: string, fileName: string, content: any) => Promise<[boolean, string | Error]>;
+  read: (dir: string, fileName: string) => Promise<[false, string] | [true, Error]>;
+  readPublic: (trimmedFilePath: string) => Promise<[boolean, string]>;
+  readPublicBinary: (trimmedFilePath: string) => Promise<[boolean, string | Buffer]>;
+  update: (dir: string, fileName: string, content: any) => Promise<[boolean, string | Error]>;
+  delete: (dir: string, fileName: string) => Promise<[boolean, string | Error]>;
+  readByEmail: (dir: string, email: string) => Promise<[boolean, string | Error]>;
+  getLatesUserId: () => Promise<number>;
+  updateLatestUserId: (latestUserID: number) => Promise<void>;
 }
 
 const file = {} as File
@@ -52,6 +42,8 @@ file.fullPublicPath = (trimmedFilePath: string) => {
  * @param {object} content Objektas (pvz.: {...}), kuri norime irasyti i kuriama faila
  * @returns {Promise<[boolean, string | Error]>} Sekmes atveju - `true`; Klaidos atveju - klaidos pranesimas
  */
+let latestUserID = 0;
+
 file.create = async (
   dir: string,
   fileName: string,
@@ -59,6 +51,15 @@ file.create = async (
 ): Promise<[boolean, string | Error]> => {
   let fileDescriptor = null
   try {
+    latestUserID++ 
+    const userId = latestUserID.toString()
+    const createdAt = new Date().toISOString();
+    const jsonData = {
+      id: userId,
+      createdAt,
+      ...content,
+    }
+
     const filePath = file.fullPath(dir, fileName)
     fileDescriptor = await fs.open(filePath, "wx")
     await fs.writeFile(fileDescriptor, JSON.stringify(content))
@@ -78,12 +79,9 @@ file.create = async (
  * @param {string} fileName Norimo failo pavadinimas su jo pletiniu
  * @returns {Promise<[boolean, string | Error]>} Sekmes atveju - failo turinys; Klaidos atveju - klaida
  */
-file.read = async (
-  dir: string,
-  fileName: string
-): Promise<[false, string] | [true, Error]> => {
+file.read = async (dir: string,): Promise<[false, string] | [true, Error]> => {
   try {
-    const filePath = file.fullPath(dir, fileName)
+    const filePath = file.fullPath(dir, `{fileName}.json`)
     const fileContent = await fs.readFile(filePath, "utf-8")
     return [false, fileContent]
   } catch (error) {
@@ -159,6 +157,18 @@ file.delete = async (
     return [false, "OK"]
   } catch (error) {
     return [true, error] as [boolean, Error]
+  }
+}
+
+
+file.readByEmail = async (dir: string, email: string): Promise<[boolean, string]> => {
+  try {
+    const fileName = `${email}.json`
+    const filePath = file.fullPath(dir, fileName)
+    const fileContent = await fs.readFile(filePath, "utf-8")
+    return [false, fileContent]
+  } catch (error) {
+    return [true, "Failas nerastas"]
   }
 }
 
